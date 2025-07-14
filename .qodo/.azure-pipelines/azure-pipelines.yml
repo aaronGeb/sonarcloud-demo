@@ -1,0 +1,67 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pr:
+  branches:
+    include:
+      - "*"
+
+variables:
+  SONAR_TOKEN: $(SonarToken) # Set in Azure DevOps Library
+  MAVEN_OPTS: "-Xmx1024m"
+
+stages:
+  - stage: SalesforceAnalysis
+    displayName: "Salesforce SFDX Analysis"
+    jobs:
+      - job: SFDX
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '16.x'
+            displayName: 'Install Node.js'
+
+          - script: |
+              npm install sfdx-cli --global
+              sfdx plugins:install @salesforce/sfdx-scanner
+              sfdx scanner:run --target salesforce/force-app --format sarif --outfile sfdx-results.sarif
+            displayName: "Run SFDX Static Code Analysis"
+
+          - task: SonarCloudPrepare@1
+            inputs:
+              SonarCloud: 'YourSonarCloudServiceConnection'
+              organization: 'your-org-key'
+              scannerMode: 'CLI'
+              configMode: 'manual'
+              cliProjectKey: 'sonarcloud-demo'
+              cliProjectName: 'SonarCloud Demo'
+              extraProperties: |
+                sonar.sources=salesforce/force-app
+
+          - task: SonarCloudAnalyze@1
+
+          - task: SonarCloudPublish@1
+            inputs:
+              pollingTimeoutSec: '300'
+
+  - stage: MuleSoftAnalysis
+    displayName: "MuleSoft API Analysis"
+    jobs:
+      - job: MULE
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: Maven@3
+            inputs:
+              mavenPomFile: 'mulesoft/pom.xml'
+              goals: 'clean verify sonar:sonar'
+              options: >
+                -Dsonar.organization=your-org-key
+                -Dsonar.projectKey=sonarcloud-demo-mule
+                -Dsonar.host.url=https://sonarcloud.io
+                -Dsonar.login=$(SONAR_TOKEN)

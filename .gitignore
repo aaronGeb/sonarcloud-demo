@@ -1,0 +1,20 @@
+# Salesforce
+.sfdx
+*.log
+coverage/
+*.json
+*.zip
+node_modules/
+!.forceignore
+
+# MuleSoft
+target/
+*.jar
+*.class
+
+# General
+.DS_Store
+*.iml
+.idea/
+.vscode/
+.env
